@@ -4,6 +4,10 @@
 --- Note: This replaces the mode where the HUD is hidden!
 local enableLiteHud = true
 
+--- Enables smooth mode for AR
+--- Thanks to EasternGamer for helping with this!
+local enableSmoothMode = true
+
 userBase = (function()
   --[[
     Embed our libraries for template rendering
@@ -600,6 +604,7 @@ userBase = (function()
       Render-related stuff, this mostly generates a self-contained render function that updates the UI for us, based on input parameters
     ]]
 
+    local previousBuffer = ''
     local render = (function()
       local UI = {}
       local Shapes = {}
@@ -637,7 +642,7 @@ userBase = (function()
 
       --- Draws text
       renderGlobals.Label = SmartTemplate([[
-        <span style="font-size: {{ size or 1 }}em; font-family: {{ font or 'Play' }}; font-weight: {{ weight or 'normal' }}; color: {{ color or GetHudColor() }}; text-shadow: 0px 0px 1px {{ stroke or Colors.Shadow }}, 0px 0px 2px #000, 0px 0px 4px #000;">
+        <span style="font-size: {{ size or 1 }}em; font-family: {{ font or 'Play' }}; font-weight: {{ weight or 'normal' }}; color: {{ color or GetHudColor() }}; text-shadow: 0px 0px 0.125em {{ stroke or Colors.Shadow }}, 0px 0px 0.250em #000, 0px 0px 0.500em #000;">
           {{ text }}
         </span>
       ]], renderGlobals)
@@ -682,7 +687,7 @@ userBase = (function()
 
         -- Calculates the ETA at current speed
         local eta = nil
-        if speed and speed > 0 then
+        if speed and speed > 1 then
           eta = TimeToDistance(distance, speed)
         end
       %}
@@ -691,7 +696,8 @@ userBase = (function()
           <div style="postion: relative;">
             {{ Shapes.Hexagon({ color = GetHudColor(), stroke = Colors.Shadow, size = 2 }) }}
           {% if title or distance then %}
-            <div style="font-size: 0.8em; position: absolute; top: 1em; left: 2.5em; border-top: 2px solid {{ GetHudColor() }}; white-space: nowrap;">
+            <div style="font-size: 0.8em; position: absolute; top: 1em; left: 2.5em; white-space: nowrap; padding: 0px 0.5em;">
+              <hr style="border: 0px none; height: 2px; background: {{ GetHudColor() }}; width: 5em; margin: 0px -0.5em 0.5em; padding: 0px;" />
             {% if title then %}
               <div>{{ Label({ text = title, size = 1.2, weight = 'bold' }) }}</div>
             {% end %}
@@ -747,30 +753,35 @@ userBase = (function()
           </td>
         </tr>
       ]], renderGlobals)
+
+      --- This function renders anything AR-related, it has support for smooth mode, so it renders both latest and previous frame data
+      local renderAR = SmartTemplate([[
+        <div class="wlhud-ar-elements">
+          {%
+            if currentPointingAt then
+              currentPointingAtOnScreen = WorldCoordinate(currentPointingAt)
+            end
+            if currentMotion then
+              currentMotionOnScreen = WorldCoordinate(currentMotion)
+            end
+          %}
+
+          {% if Exists(currentDestination) then %}
+            {{ UI.DestinationMarker({ title = currentDestination.name, position = currentDestination.position, currentCelestialBody = currentCelestialBody, destinationCelestialBody = destinationCelestialBody, speed = currentDestinationApproachSpeed }) }}
+          {% end %}
+
+          {% if Exists(currentPointingAtOnScreen) then %}
+            {{ UI.Crosshair(currentPointingAtOnScreen) }}
+          {% end %}
+
+          {% if Exists(currentMotionOnScreen) then %}
+            {{ UI.Diamond(currentMotionOnScreen) }}
+          {% end %}
+        </div>
+      ]], renderGlobals)
       
-      --- This is our HUD's base render function and template
+      --- This function renders all other static elements, it doesn't have support for smooth mode and will only render the latest data
       local renderUI = SmartTemplate([[
-      {%
-        if currentPointingAt then
-          currentPointingAtOnScreen = WorldCoordinate(currentPointingAt)
-        end
-        if currentMotion then
-          currentMotionOnScreen = WorldCoordinate(currentMotion)
-        end
-      %}
-
-        {% if Exists(currentDestination) then %}
-          {{ UI.DestinationMarker({ title = currentDestination.name, position = currentDestination.position, currentCelestialBody = currentCelestialBody, destinationCelestialBody = destinationCelestialBody, speed = currentDestinationApproachSpeed }) }}
-        {% end %}
-
-        {% if Exists(currentPointingAtOnScreen) then %}
-          {{ UI.Crosshair(currentPointingAtOnScreen) }}
-        {% end %}
-
-        {% if Exists(currentMotionOnScreen) then %}
-          {{ UI.Diamond(currentMotionOnScreen) }}
-        {% end %}
-
       {% if Exists(info) then %}
       {%
         local burnTimes = info.burnTimes
@@ -787,6 +798,28 @@ userBase = (function()
           align-items: center;
           
           font-size: 0.8em;
+        }
+        
+        .wlhud-info-speed,
+        .wlhud-info-altitude {
+          position: absolute;
+          top: 50%;
+          margin-top: -1.6em;
+
+          display: flex;
+          flex-direction: column;
+
+          font-size: 0.64em;
+        }
+
+        .wlhud-info-speed {
+          right: 70%;
+          align-items: flex-end;
+        }
+
+        .wlhud-info-altitude {
+          left: 70%;
+          align-items: flex-start;
         }
 
         .data-row-label {
@@ -819,18 +852,25 @@ userBase = (function()
         .wlhud-fuel-type + .wlhud-fuel-type { margin-top: 1em; }
         </style>
 
+        <div class="wlhud-info-speed">
+          {{ Label({ text = MetersPerSecond(currentSpeed, true), size = 2 }) }}
+        {% if info.isThrottleMode then %}
+          {{ Label({ text = 'THROTTLE: ' .. Percentage(info.throttleValue), weight = 'bold' }) }}
+        {% elseif info.isCruiseMode then %}
+          {{ Label({ text = 'CRUISE: ' .. KilometersPerHour(info.throttleValue), weight = 'bold' }) }}
+        {% end %}
+          {{ Label({ text = 'ACCEL: ' .. Round(info.accelerationInGs, 1) .. 'g', weight = 'bold' }) }}
+        </div>
+
+      {% if currentCelestialBody then %}
+        <div class="wlhud-info-altitude">
+          {{ Label({ text = Round(currentCelestialBody.coordinates.alt) .. 'm', size = 2 }) }}
+          {{ Label({ text = 'VSPD: ' .. MetersPerSecond(currentSpeedVertical), weight = 'bold' }) }}
+        </div>
+      {% end %}
+
         <div class="wlhud-info">
           <table>
-          {% if info.isThrottleMode then %}
-            {{ UI.DataRow({ label = 'Throttle:', value = Percentage(info.throttleValue) }) }}
-          {% elseif info.isCruiseMode then %}
-            {{ UI.DataRow({ label = 'Cruise:', value = KilometersPerHour(info.throttleValue) }) }}
-          {% end %}
-
-            {{ UI.DataRow({ label = 'Acceleration:', value = Round(info.accelerationInGs, 1) .. 'g' }) }}
-            {{ UI.DataRow({ label = 'Speed:', value = MetersPerSecond(currentSpeed, true) }) }}
-            {{ UI.DataRow({ label = 'vSpeed:', value = MetersPerSecond(currentSpeedVertical) }) }}
-
           {% if Exists(burnTimes) and burnTimes.min and burnTimes.max then %}
             {% if burnTimes.min == burnTimes.max then %}
               {{ UI.DataRow({ label = 'Burn Time:', value = Time(burnTimes.min, true) }) }}
@@ -867,7 +907,54 @@ userBase = (function()
 
       --- This is what actually renders to the screen
       return function(data)
-        userScreen = renderUI(data or {})
+        local smoothModeTickRate = hudTickRate / 2
+
+        -- Renders our UI
+        local renderedAR = renderAR(data or {})
+        local renderedUI = renderUI(data or {})
+
+        -- Composes our AR stuff for smooth mode
+        local composedAR = renderedAR
+        if enableSmoothMode then
+          composedAR = table.concat({
+            ([[
+              <style>
+                .ui-frame-1 .wlhud-static-elements {
+                  visibility: hidden;
+                }
+                .ui-frame-1 .wlhud-ar-elements {
+                  animation: f1 0s linear %.4fs 1 normal forwards;
+                }
+                .ui-frame-2 .wlhud-ar-elements {
+                  animation: f2 0s linear %.4fs 1 normal forwards;
+                  visibility: hidden;
+                }
+                
+                @keyframes f1 {
+                  from {
+                    visibility: visible;
+                  }
+                  to {
+                    visibility: hidden;
+                  }
+                }
+                @keyframes f2 {
+                  from {
+                    visibility: hidden;
+                  }
+                  to {
+                    visibility: visible;
+                  }
+                }
+              </style>
+            ]]):format(smoothModeTickRate, smoothModeTickRate),
+            ('<div class="ui-frame-1">%s</div>'):format(previousBuffer),
+            ('<div class="ui-frame-2">%s</div>'):format(renderedAR),
+          })
+          previousBuffer = renderedAR
+        end
+
+        userScreen = composedAR .. renderedUI
       end
     end)()
 
