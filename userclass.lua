@@ -647,21 +647,21 @@ userBase = (function()
         </span>
       ]], renderGlobals)
 
-      --- Draws a Hexagon primitive shaoe
+      --- Draws the hexagon, showing the current destiantion point in space
       Shapes.Hexagon = SmartTemplate([[
         <svg style="width: {{ size or 1 }}em; height: {{ size or 1 }}em;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M24.25 1.56699L24 1.42265L23.75 1.56699L4.69745 12.567L4.44745 12.7113V13V35V35.2887L4.69745 35.433L23.75 46.433L24 46.5774L24.25 46.433L43.3026 35.433L43.5526 35.2887V35V13V12.7113L43.3026 12.567L24.25 1.56699ZM9.44745 32.4019V15.5981L24 7.19615L38.5526 15.5981V32.4019L24 40.8038L9.44745 32.4019Z" fill="{{ color }}" stroke="{{ stroke }}"/>
         </svg>
       ]])
 
-      --- Draws a Crosshair primitive shaoe
+      --- Draws the crosshair, showing current forward direction
       Shapes.Crosshair = SmartTemplate([[
         <svg style="width: {{ size or 1 }}em; height: {{ size or 1 }}em;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M23.6465 37.8683L24.0001 38.2218L24.3536 37.8683L26.3536 35.8684L26.5 35.7219V35.5148V26.5H35.5148H35.7219L35.8684 26.3536L37.8684 24.3536L38.2219 24L37.8684 23.6465L35.8684 21.6465L35.7219 21.5H35.5148H26.5V12.4852V12.2781L26.3536 12.1317L24.3536 10.1317L24.0001 9.77818L23.6465 10.1317L21.6465 12.1318L21.5 12.2782V12.4854V21.5H12.4854H12.2782L12.1318 21.6465L10.1318 23.6465L9.77824 24L10.1318 24.3536L12.1318 26.3536L12.2782 26.5H12.4854H21.5V35.5147V35.7218L21.6465 35.8682L23.6465 37.8683Z" fill="{{ color }}" stroke="{{ stroke }}"/>
         </svg>
       ]])
 
-      --- Draws a Crosshair primitive shaoe
+      --- Draws the diamond, showing current motion vector
       Shapes.Diamond = SmartTemplate([[
         <svg style="width: {{ size or 1 }}em; height: {{ size or 1 }}em;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M24.3536 1.64645L24 1.29289L23.6465 1.64645L1.64645 23.6465L1.29289 24L1.64645 24.3536L23.6465 46.3536L24 46.7071L24.3536 46.3536L46.3536 24.3536L46.7071 24L46.3536 23.6465L24.3536 1.64645ZM24 39.636L8.36396 24L24 8.36396L39.636 24L24 39.636Z" fill="{{ color }}" stroke="{{ stroke }}"/>
@@ -673,7 +673,7 @@ userBase = (function()
         'position: absolute; top: {{ Percentage(y, 6) }}; left: {{ Percentage(x, 6) }}; margin-top: -{{ (height or 1) / 2 }}em; margin-left: -{{ (width or 1) / 2 }}em;'
       , renderGlobals)
 
-      --- Renders a destination marker
+      --- Renders a full destination marker (hexagon + info)
       UI.DestinationMarker = SmartTemplate([[
       {%
         local screen = WorldCoordinate(position)
