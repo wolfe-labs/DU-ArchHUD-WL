@@ -681,7 +681,7 @@ userBase = (function()
 
         -- When on same celestial body, we need to take into account going around it
         -- We use math.max here so we can also take the vertical displacement into account
-        if Exists(currentCelestialBody) and Exists(destinationCelestialBody) and currentCelestialBody.id == destinationCelestialBody.id then
+        if Exists(currentCelestialBody) and Exists(destinationCelestialBody) and currentCelestialBody.info.id == destinationCelestialBody.info.id then
           distance = math.max(distance, DistanceAroundCelestialBody(position, destinationCelestialBody.info))
         end
 
