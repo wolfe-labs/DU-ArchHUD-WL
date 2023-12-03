@@ -8,6 +8,9 @@ local enableLiteHud = true
 --- Thanks to EasternGamer for helping with this!
 local enableSmoothMode = true
 
+--- Uses the same positioning of altitude/speed as ArchHUD
+local useSameAltitudeSpeedPositioning = true
+
 userBase = (function()
   --[[
     Embed our libraries for template rendering
@@ -518,12 +521,12 @@ userBase = (function()
 
       for _, celestialBody in pairs(atlas) do
         local celestialBodyPosition = vec3(celestialBody.center)
-        local celestialBodyDistance = (position - celestialBodyPosition):len()
+        local celestialBodyAltitude = (position - celestialBodyPosition):len() - (celestialBody.radius or 0)
         local celestialBodyGravity0 = getAltitudeAtGravitationalForceInGs(0.1, celestialBody)
 
-        if (not closestBodyDistance or closestBodyDistance > celestialBodyDistance) and (allowInfiniteRange or celestialBodyDistance <= celestialBodyGravity0) then
+        if (not closestBodyDistance or closestBodyDistance > celestialBodyAltitude) and (allowInfiniteRange or celestialBodyAltitude <= celestialBodyGravity0) then
           closestBody = celestialBody
-          closestBodyDistance = celestialBodyDistance
+          closestBodyDistance = celestialBodyAltitude
         end
       end
 
@@ -569,7 +572,7 @@ userBase = (function()
     local function getDistanceAroundCelestialBody(point, celestialBody)
       local currentCoordinates = getLatLonAltFromWorldPosition(vec3(construct.getWorldPosition()), celestialBody)
       local targetCoordinates = getLatLonAltFromWorldPosition(point, celestialBody)
-      local flyingAltitude = currentCoordinates.alt, celestialBody.maxStaticAltitude
+      local flyingAltitude = math.max(currentCoordinates.alt, celestialBody.maxStaticAltitude)
 
       -- Helper function to convert degrees to radians
       local function rad(deg)
@@ -628,8 +631,10 @@ userBase = (function()
           Main = '#09D4EB',
           Accent = '#5FFF77',
           Shadow = 'rgba(0, 0, 0, 0.75)',
+          ShadowLight = 'rgba(0, 0, 0, 0.375)',
         },
         GetHudColor = getHudColorRgb,
+        UseArchHudPositioning = useSameAltitudeSpeedPositioning,
       }
 
       --- Draws text as SVG
@@ -789,7 +794,7 @@ userBase = (function()
         <style>
         .wlhud-info {
           position: absolute;
-          bottom: 15%;
+          bottom: 5%;
           left: 50%;
           transform: translateX(-50%);
 
@@ -813,13 +818,23 @@ userBase = (function()
         }
 
         .wlhud-info-speed {
+        {% if UseArchHudPositioning then %}
+          left: 70%;
+          align-items: flex-start;
+        {% else %}
           right: 70%;
           align-items: flex-end;
+        {% end %}
         }
 
         .wlhud-info-altitude {
+        {% if UseArchHudPositioning then %}
+          right: 70%;
+          align-items: flex-end;
+        {% else %}
           left: 70%;
           align-items: flex-start;
+        {% end %}
         }
 
         .data-row-label {
@@ -848,6 +863,9 @@ userBase = (function()
         }
         .wlhud-fuel-type-tanks > div {
           margin: 0px 0.1em;
+
+          background: {{ Colors.ShadowLight }};
+          box-shadow: 0px 0px 0.125em {{ Colors.Shadow }}, 0px 0px 0.250em #000;
         }
         .wlhud-fuel-type + .wlhud-fuel-type { margin-top: 1em; }
         </style>
@@ -859,11 +877,12 @@ userBase = (function()
         {% elseif info.isCruiseMode then %}
           {{ Label({ text = 'CRUISE: ' .. KilometersPerHour(info.throttleValue), weight = 'bold' }) }}
         {% end %}
-          {{ Label({ text = 'ACCEL: ' .. Round(info.accelerationInGs, 1) .. 'g', weight = 'bold' }) }}
+          {{ Label({ text = 'ACCEL: ' .. Round(info.accelerationInGs, 1) .. 'g' .. ' — ' .. Round(info.accelerationInMs2, 1) .. 'm/s²', weight = 'bold' }) }}
         </div>
 
       {% if currentCelestialBody then %}
         <div class="wlhud-info-altitude">
+          {{ Label({ text = currentCelestialBody.info.name or 'Unknown Location', weight = 'bold' }) }}
           {{ Label({ text = Round(currentCelestialBody.coordinates.alt) .. 'm', size = 2 }) }}
           {{ Label({ text = 'VSPD: ' .. MetersPerSecond(currentSpeedVertical), weight = 'bold' }) }}
         </div>
@@ -1077,6 +1096,7 @@ userBase = (function()
           isCruiseMode = unit.getControlMode() == 1,
           acceleration = worldAcceleration:len(),
           accelerationInGs = worldAcceleration:len() / core.getGravityIntensity(),
+          accelerationInMs2 = worldAcceleration:len(),
           burnTimes = burnTimes,
           fuel = {
             { tanks = atmo, burnTimes = burnTimeAtmo, label = 'Atmo' },
