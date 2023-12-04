@@ -332,12 +332,19 @@ userBase = (function()
       return result
     end
 
-    --- Gets the fuel tank levels per type
-    ---@return table
-    local tanksPreviousReadings = {}
-    local function getFuelLevels(fuelTankType)
-      local now = system.getArkTime()
+    --- Updates fuel level cache
+    local cachedFuelTanks = nil
+    local function updateFuelLevels()
+      local now = system.getUtcTime()
 
+      local allFuelTanks = {
+        lastReading = now,
+        perId = {},
+        atmo = {},
+        space = {},
+        rockets = {},
+      }
+      for _, fuelTankType in pairs({ 'atmo', 'space', 'rocket' }) do
       local tanks = {}
       local tankType = nil
       local density = 0
@@ -363,16 +370,22 @@ userBase = (function()
         min = nil,
         max = nil,
       }
+        local hasRegisteredChange = true
       for _, _tank in pairs(tanks) do
         local tank = getFuelTankInfo(_tank, tankType)
 
         -- Compares with previous reading
         local fuelReadingDelta, fuelMassUsed, lastTimeLeft = nil, nil, nil
-        local previousReading = tanksPreviousReadings[tank.id]
+          local previousReading = cachedFuelTanks and cachedFuelTanks.perId[tank.id]
         if previousReading then
           fuelMassUsed = math.max(0, previousReading.volumeMass - tank.volumeMass)
-          fuelReadingDelta = now - previousReading.readingTime
+            fuelReadingDelta = now - cachedFuelTanks[fuelTankType].lastReading
           lastTimeLeft = previousReading.timeLeft
+
+            -- Stops counting if we're not spending fuel
+            if tank.volumeMass == previousReading.volumeMass then
+              hasRegisteredChange = false
+            end
         end
 
         -- Let's use the widget data if we have it available
@@ -407,8 +420,7 @@ userBase = (function()
         end
 
         -- Updates previous reading
-        tanksPreviousReadings[tank.id] = {
-          readingTime = now,
+          allFuelTanks.perId[tank.id] = {
           volumeMass = tank.volumeMass,
           timeLeft = data.timeLeft,
         }
@@ -416,7 +428,32 @@ userBase = (function()
         table.insert(fuelTanks, data)
       end
 
-      return fuelTanks, fuelTimes
+        -- Handles cases where we stopped using fuel, triggering the UI to disappear
+        if cachedFuelTanks and now - cachedFuelTanks[fuelTankType].lastReading > 6 then
+          fuelTimes = {
+            min = 2 ^ 31,
+            max = 2 ^ 31,
+          }
+        end
+
+        allFuelTanks[fuelTankType] = {
+          lastReading = (hasRegisteredChange and now) or (cachedFuelTanks[fuelTankType].lastReading or now),
+          tanks = fuelTanks,
+          times = fuelTimes,
+        }
+      end
+
+      cachedFuelTanks = allFuelTanks
+    end
+
+    --- Gets the fuel tank levels per type
+    ---@return table
+    local function getFuelLevels(fuelTankType)
+      if not cachedFuelTanks then
+        updateFuelLevels()
+      end
+
+      return cachedFuelTanks[fuelTankType].tanks, cachedFuelTanks[fuelTankType].times
     end
 
     --- Gets the current forward direction in world space
