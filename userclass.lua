@@ -539,10 +539,10 @@ userBase = (function()
 
       for _, celestialBody in pairs(atlas) do
         local celestialBodyPosition = vec3(celestialBody.center)
-        local celestialBodyAltitude = (position - celestialBodyPosition):len() - (celestialBody.radius or 0)
-        local celestialBodyGravity0 = getAltitudeAtGravitationalForceInGs(0.1, celestialBody)
+        local celestialBodyDistance = (position - celestialBodyPosition):len()
+        local celestialBodyAltitude = celestialBodyDistance - (celestialBody.radius or 0)
 
-        if (not closestBodyDistance or closestBodyDistance > celestialBodyAltitude) and (allowInfiniteRange or celestialBodyAltitude <= celestialBodyGravity0) then
+        if (not closestBodyDistance or closestBodyDistance > celestialBodyAltitude) and (allowInfiniteRange or celestialBodyDistance <= 400000) then
           closestBody = celestialBody
           closestBodyDistance = celestialBodyAltitude
         end
@@ -590,7 +590,7 @@ userBase = (function()
     local function getDistanceAroundCelestialBody(point, celestialBody)
       local currentCoordinates = getLatLonAltFromWorldPosition(vec3(construct.getWorldPosition()), celestialBody)
       local targetCoordinates = getLatLonAltFromWorldPosition(point, celestialBody)
-      local flyingAltitude = math.max(currentCoordinates.alt, celestialBody.maxStaticAltitude)
+      local flyingAltitude = math.max(currentCoordinates.alt, celestialBody.maxStaticAltitude or 1000)
 
       -- Helper function to convert degrees to radians
       local function rad(deg)
