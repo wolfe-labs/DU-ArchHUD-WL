@@ -11,6 +11,12 @@ local enableSmoothMode = true
 --- Uses the same positioning of altitude/speed as ArchHUD
 local useSameAltitudeSpeedPositioning = true
 
+--- Controls HUD scale (how large things are)
+local hudScale = 1.0
+
+--- Enables FPS counter
+local showFramesPerSecond = false
+
 userBase = (function()
   --[[
     Embed our libraries for template rendering
@@ -221,6 +227,10 @@ userBase = (function()
     --- This is our "reference" gravity value, it will be calculated below
     ---@type number
     local referenceGravity1g = nil
+
+    --- This is our last update time, we'll use to count FPS
+    local currentFps = 0
+    local tLastFrame = system.getUtcTime()
 
     --[[
       General Helpers
@@ -635,6 +645,7 @@ userBase = (function()
         },
         GetHudColor = getHudColorRgb,
         UseArchHudPositioning = useSameAltitudeSpeedPositioning,
+        HudScale = hudScale,
       }
 
       --- Draws text as SVG
@@ -792,6 +803,18 @@ userBase = (function()
         local burnTimes = info.burnTimes
       %}
         <style>
+        .wlhud-main {
+          font-size: {{ HudScale }}em;
+        }
+
+        .wlhud-fps {
+          position: absolute;
+          top: 1rem;
+          left: 1rem;
+
+          font-size: 0.5em;
+        }
+
         .wlhud-info {
           position: absolute;
           bottom: 5%;
@@ -870,55 +893,63 @@ userBase = (function()
         .wlhud-fuel-type + .wlhud-fuel-type { margin-top: 1em; }
         </style>
 
-        <div class="wlhud-info-speed">
-          {{ Label({ text = MetersPerSecond(currentSpeed, true), size = 2 }) }}
-        {% if info.isThrottleMode then %}
-          {{ Label({ text = 'THROTTLE: ' .. Percentage(info.throttleValue), weight = 'bold' }) }}
-        {% elseif info.isCruiseMode then %}
-          {{ Label({ text = 'CRUISE: ' .. KilometersPerHour(info.throttleValue), weight = 'bold' }) }}
+        <div class="wlhud-main">
+        {% if currentFps then %}
+          <div class="wlhud-fps">
+            {{ Label({ text = 'FPS: ' .. Round(currentFps, 0), weight = 'bold' }) }}
+          </div>
         {% end %}
-          {{ Label({ text = 'ACCEL: ' .. Round(info.accelerationInGs, 1) .. 'g' .. ' — ' .. Round(info.accelerationInMs2, 1) .. 'm/s²', weight = 'bold' }) }}
-        </div>
 
-      {% if currentCelestialBody then %}
-        <div class="wlhud-info-altitude">
-          {{ Label({ text = currentCelestialBody.info.name or 'Unknown Location', weight = 'bold' }) }}
-          {{ Label({ text = Round(currentCelestialBody.coordinates.alt) .. 'm', size = 2 }) }}
-          {{ Label({ text = 'VSPD: ' .. MetersPerSecond(currentSpeedVertical), weight = 'bold' }) }}
-        </div>
-      {% end %}
-
-        <div class="wlhud-info">
-          <table>
-          {% if Exists(burnTimes) and burnTimes.min and burnTimes.max then %}
-            {% if burnTimes.min == burnTimes.max then %}
-              {{ UI.DataRow({ label = 'Burn Time:', value = Time(burnTimes.min, true) }) }}
-            {% else %}
-              {{ UI.DataRow({ label = 'Burn Time Min.:', value = Time(burnTimes.min, true) }) }}
-              {{ UI.DataRow({ label = 'Burn Time Max.:', value = Time(burnTimes.max, true) }) }}
-            {% end %}
+          <div class="wlhud-info-speed">
+            {{ Label({ text = MetersPerSecond(currentSpeed, true), size = 2 }) }}
+          {% if info.isThrottleMode then %}
+            {{ Label({ text = 'THROTTLE: ' .. Percentage(info.throttleValue), weight = 'bold' }) }}
+          {% elseif info.isCruiseMode then %}
+            {{ Label({ text = 'CRUISE: ' .. KilometersPerHour(info.throttleValue), weight = 'bold' }) }}
           {% end %}
-          </table>
+            {{ Label({ text = 'ACCEL: ' .. Round(info.accelerationInGs, 1) .. 'g' .. ' — ' .. Round(info.accelerationInMs2, 1) .. 'm/s²', weight = 'bold' }) }}
+          </div>
 
-          <div class="wlhud-fuel">
-          {% for _, fuelType in pairs(info.fuel) do %}
-            {% local tankTypeColor = GetHudColor() %}
-            {% if #fuelType.tanks > 0 then %}
-              <div class="wlhud-fuel-type">
-                <div class="wlhud-fuel-type-tanks">
-                {% for _, tank in pairs(fuelType.tanks) do %}
-                  {% if tank.level < 0.2 or (tank.timeLeft and tank.timeLeft < 60) then %}
-                    {% tankTypeColor = '#F70' %}
-                    {{ UI.ProgressVertical({ height = 4, width = 0.5, progress = tank.level, stroke = tankTypeColor, color = tankTypeColor }) }}
-                  {% else %}
-                    {{ UI.ProgressVertical({ height = 4, width = 0.5, progress = tank.level }) }}
+        {% if currentCelestialBody then %}
+          <div class="wlhud-info-altitude">
+            {{ Label({ text = currentCelestialBody.info.name or 'Unknown Location', weight = 'bold' }) }}
+            {{ Label({ text = Round(currentCelestialBody.coordinates.alt) .. 'm', size = 2 }) }}
+            {{ Label({ text = 'VSPD: ' .. MetersPerSecond(currentSpeedVertical), weight = 'bold' }) }}
+          </div>
+        {% end %}
+
+          <div class="wlhud-info">
+            <table>
+            {% if Exists(burnTimes) and burnTimes.min and burnTimes.max then %}
+              {% if burnTimes.min == burnTimes.max then %}
+                {{ UI.DataRow({ label = 'Burn Time:', value = Time(burnTimes.min, true) }) }}
+              {% else %}
+                {{ UI.DataRow({ label = 'Burn Time Min.:', value = Time(burnTimes.min, true) }) }}
+                {{ UI.DataRow({ label = 'Burn Time Max.:', value = Time(burnTimes.max, true) }) }}
+              {% end %}
+            {% end %}
+            </table>
+
+            <div class="wlhud-fuel">
+            {% for _, fuelType in pairs(info.fuel) do %}
+              {% local tankTypeColor = GetHudColor() %}
+              {% if #fuelType.tanks > 0 then %}
+                <div class="wlhud-fuel-type">
+                  <div class="wlhud-fuel-type-tanks">
+                  {% for _, tank in pairs(fuelType.tanks) do %}
+                    {% if tank.level < 0.2 or (tank.timeLeft and tank.timeLeft < 60) then %}
+                      {% tankTypeColor = '#F70' %}
+                      {{ UI.ProgressVertical({ height = 4, width = 0.5, progress = tank.level, stroke = tankTypeColor, color = tankTypeColor }) }}
+                    {% else %}
+                      {{ UI.ProgressVertical({ height = 4, width = 0.5, progress = tank.level }) }}
+                    {% end %}
                   {% end %}
-                {% end %}
+                  </div>
+                  <div>{{ Label({ text = fuelType.label, size = 0.8, color = tankTypeColor })}}</div>
                 </div>
-                <div>{{ Label({ text = fuelType.label, size = 0.8, color = tankTypeColor })}}</div>
-              </div>
+              {% end %}
             {% end %}
-          {% end %}
+            </div>
           </div>
         </div>
       {% end %}
@@ -1119,6 +1150,9 @@ userBase = (function()
         -- Routing utilities
         currentCelestialBody = currentCelestialBodyInfo,
         destinationCelestialBody = destinationCelestialBodyInfo,
+
+        -- Shows current FPS
+        currentFps = (showFramesPerSecond and currentFps) or nil,
       })
     end
     
@@ -1170,7 +1204,11 @@ userBase = (function()
 
     -- Stubs otherwise the main HUD will crash
     local function onStop() end
-    local function onUpdate() end
+    local function onUpdate()
+      local tNow = system.getUtcTime()
+      currentFps = 1 / (tNow - tLastFrame)
+      tLastFrame = tNow
+    end
     local function onFlush() end
 
     -- This is our use API
