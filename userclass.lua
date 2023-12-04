@@ -958,7 +958,11 @@ userBase = (function()
         {% if currentCelestialBody then %}
           <div class="wlhud-info-altitude">
             {{ Label({ text = currentCelestialBody.info.name or 'Unknown Location', weight = 'bold' }) }}
+          {% if currentCelestialBody.coordinates.alt >= 100000 then %}
+            {{ Label({ text = Round(currentCelestialBody.coordinates.alt / 1000, 2) .. 'km', size = 2 }) }}
+          {% else %}
             {{ Label({ text = Round(currentCelestialBody.coordinates.alt) .. 'm', size = 2 }) }}
+          {% end %}
             {{ Label({ text = 'VSPD: ' .. MetersPerSecond(currentSpeedVertical), weight = 'bold' }) }}
           </div>
         {% end %}
