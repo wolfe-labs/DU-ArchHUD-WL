@@ -969,7 +969,7 @@ userBase = (function()
 
           <div class="wlhud-info">
             <table>
-            {% if Exists(burnTimes) and burnTimes.min and burnTimes.max then %}
+            {% if Exists(burnTimes) and burnTimes.min and burnTimes.max and burnTimes.min < 86400 then %}
               {% if burnTimes.min == burnTimes.max then %}
                 {{ UI.DataRow({ label = 'Burn Time:', value = Time(burnTimes.min, true) }) }}
               {% else %}
@@ -1257,6 +1257,10 @@ userBase = (function()
       local tNow = system.getUtcTime()
       currentFps = 1 / (tNow - tLastFrame)
       tLastFrame = tNow
+
+      if not cachedFuelTanks or (tNow - cachedFuelTanks.lastReading) > 1.0 then
+        updateFuelLevels()
+      end
     end
     local function onFlush() end
 
