@@ -217,6 +217,14 @@ userBase = (function()
     local atlas = {}
     for systemId, celestialBodies in pairs(require('atlas') or {}) do
       for celestialBodyId, celestialBody in pairs(celestialBodies) do
+        -- Patches for Sinnen Moon 1
+        -- Source: Wolfe Labs Atlas <https://dual.wolfe.science/tools/calculators/>
+        if celestialBodyId == 70 then
+          celestialBody.radius = 17000
+          celestialBody.GM = 367273401.388
+          celestialBody.gravity = 1.271
+        end
+
         atlas[celestialBodyId] = celestialBody
       end
     end
