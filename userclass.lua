@@ -212,6 +212,9 @@ userBase = (function()
   
   local core, unit, system, library, construct = nil, nil, DUSystem, DULibrary, DUConstruct
 
+  --- A list of all linked elements by their name
+  local links = {}
+
   hasInitialized, result = pcall(function()
     -- Initializes our atlas as a map of body ID to body info
     local atlas = {}
@@ -722,6 +725,13 @@ userBase = (function()
         </svg>
       ]])
 
+      --- Draws the crosshair, showing current forward direction
+      Shapes.Galaxy = SmartTemplate([[
+        <svg style="width: {{ size or 1 }}em; height: {{ size or 1 }}em;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19.7518 24C19.7518 21.6538 21.6538 19.7519 24 19.7519C26.3462 19.7519 28.2481 21.6538 28.2481 24C28.2481 26.3462 26.3462 28.2482 24 28.2482C21.6538 28.2482 19.7518 26.3462 19.7518 24ZM24 15.5864C19.3533 15.5864 15.5864 19.3533 15.5864 24C15.5864 28.6467 19.3533 32.4136 24 32.4136C28.6467 32.4136 32.4135 28.6467 32.4135 24C32.4135 19.3533 28.6467 15.5864 24 15.5864ZM23.2569 9.8038C26.0417 7.019 29.8658 6.09465 33.4484 7.02345C34.5618 7.31212 35.6984 6.64351 35.9871 5.53007C36.2758 4.41663 35.6072 3.28 34.4937 2.99133C29.5298 1.70437 24.1742 2.99566 20.3115 6.85839C18.2946 8.87533 16.9853 11.2898 16.424 13.909C16.183 15.0337 16.8994 16.1409 18.0241 16.3819C19.1488 16.6229 20.256 15.9065 20.497 14.7818C20.8854 12.9694 21.7919 11.2688 23.2569 9.8038ZM18.7186 5.38198C19.7121 4.8024 20.0477 3.52712 19.4681 2.53355C18.8886 1.53999 17.6133 1.20439 16.6197 1.78397C12.2262 4.34689 9.25558 8.96438 9.25558 14.5037C9.25558 17.2279 9.97871 20.0175 11.5046 22.3064C12.1427 23.2635 13.4358 23.5221 14.3928 22.884C15.3499 22.246 15.6085 20.9529 14.9705 19.9958C13.964 18.4861 13.421 16.5275 13.421 14.5037C13.421 10.5464 15.5154 7.25048 18.7186 5.38198ZM7.02358 14.5516C7.31225 13.4382 6.64365 12.3015 5.53021 12.0128C4.41677 11.7242 3.28014 12.3928 2.99147 13.5062C1.70452 18.4702 2.9958 23.8258 6.85852 27.6885C8.87545 29.7055 11.29 31.0148 13.9091 31.576C15.0338 31.817 16.141 31.1006 16.382 29.9759C16.623 28.8512 15.9066 27.7441 14.7819 27.503C12.9695 27.1147 11.2689 26.2081 9.80392 24.7431C7.01913 21.9583 6.09478 18.1341 7.02358 14.5516ZM5.38197 29.2814C4.80239 28.2879 3.52711 27.9523 2.53355 28.5319C1.53999 29.1114 1.20439 30.3867 1.78397 31.3803C4.34688 35.7739 8.96435 38.7444 14.5037 38.7444C17.2279 38.7444 20.0175 38.0213 22.3063 36.4954C23.2634 35.8573 23.522 34.5643 22.884 33.6072C22.2459 32.6501 20.9528 32.3915 19.9958 33.0295C18.4861 34.036 16.5275 34.579 14.5037 34.579C10.5464 34.579 7.25047 32.4846 5.38197 29.2814ZM31.5759 34.091C31.8169 32.9663 31.1005 31.8591 29.9758 31.6181C28.8511 31.3771 27.7439 32.0935 27.5029 33.2182C27.1145 35.0306 26.208 36.7312 24.743 38.1962C21.9579 40.9813 17.9823 41.9001 14.5703 40.9815C13.4596 40.6825 12.3168 41.3405 12.0177 42.4512C11.7187 43.5619 12.3767 44.7047 13.4874 45.0037C18.3054 46.3009 23.826 45.004 27.6884 41.1416C29.7053 39.1247 31.0146 36.7102 31.5759 34.091ZM36.4953 25.6936C35.8573 24.7365 34.5642 24.4779 33.6071 25.1159C32.6501 25.754 32.3914 27.0471 33.0295 28.0042C34.036 29.5139 34.579 31.4725 34.579 33.4963C34.579 37.4536 32.4845 40.7495 29.2814 42.618C28.2878 43.1976 27.9522 44.4729 28.5318 45.4664C29.1114 46.46 30.3867 46.7956 31.3802 46.216C35.7738 43.6531 38.7444 39.0356 38.7444 33.4963C38.7444 30.7721 38.0212 27.9825 36.4953 25.6936ZM34.0909 16.424C32.9662 16.183 31.859 16.8994 31.618 18.0241C31.377 19.1488 32.0934 20.256 33.2181 20.497C35.0305 20.8854 36.7311 21.7919 38.1961 23.2569C40.9812 26.042 41.9 30.0177 40.9814 33.4297C40.6823 34.5404 41.3403 35.6832 42.451 35.9822C43.5617 36.2812 44.7045 35.6233 45.0036 34.5126C46.3007 29.6946 45.0039 24.1739 41.1415 20.3115C39.1245 18.2946 36.71 16.9853 34.0909 16.424ZM28.0042 14.9705C29.5139 13.964 31.4725 13.421 33.4963 13.421C37.4536 13.421 40.7495 15.5154 42.618 18.7186C43.1976 19.7121 44.4729 20.0477 45.4664 19.4681C46.46 18.8886 46.7956 17.6133 46.216 16.6197C43.6531 12.2261 39.0356 9.25556 33.4963 9.25556C30.7721 9.25556 27.9825 9.97869 25.6937 11.5046C24.7366 12.1427 24.478 13.4357 25.116 14.3928C25.7541 15.3499 27.0472 15.6085 28.0042 14.9705Z" fill="{{ color }}" stroke="{{ stroke }}" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      ]])
+
       --- Draws the diamond, showing current motion vector
       Shapes.Diamond = SmartTemplate([[
         <svg style="width: {{ size or 1 }}em; height: {{ size or 1 }}em;" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -767,6 +777,30 @@ userBase = (function()
             {% end %}
             {% if eta then %}
               <div style="font-size: 0.8em;">{{ Label({ text = 'ETA: ' .. eta }) }}</div>
+            {% end %}
+            </div>
+          {% end %}
+          </div>
+        </div>
+      {% end %}
+      ]], renderGlobals)
+
+      --- Renders a full destination marker (hexagon + info)
+      UI.WarpMarker = SmartTemplate([[
+      {%
+        local screen = WorldCoordinate(position)
+        local distance = DistanceTo(position)
+      %}
+      {% if screen then %}
+        <div style="{{ UI.PositionCenteredAt({ x = screen.x, y = screen.y, width = 2, height = 2 }) }}">
+          <div style="postion: relative;">
+            {{ Shapes.Galaxy({ color = GetHudColor(), stroke = Colors.Shadow, size = 2 }) }}
+          {% if title or distance then %}
+            <div style="font-size: 0.8em; position: absolute; top: 1em; left: 2.5em; white-space: nowrap; padding: 0px 0.5em;">
+              <hr style="border: 0px none; height: 2px; background: {{ GetHudColor() }}; width: 5em; margin: 0px -0.5em 0.5em; padding: 0px;" />
+              <div>{{ Label({ text = 'Warp Point', weight = 'bold' }) }}</div>
+            {% if distance then %}
+              <div>{{ Label({ text = Metric(distance) }) }}</div>
             {% end %}
             </div>
           {% end %}
@@ -829,6 +863,10 @@ userBase = (function()
 
           {% if Exists(currentDestination) then %}
             {{ UI.DestinationMarker({ title = currentDestination.name, position = currentDestination.position, currentCelestialBody = currentCelestialBody, destinationCelestialBody = destinationCelestialBody, speed = currentDestinationApproachSpeed }) }}
+          {% end %}
+
+          {% if Exists(warp) then %}
+            {{ UI.WarpMarker({ position = warp.closestPoint }) }}
           {% end %}
 
           {% if Exists(currentPointingAtOnScreen) then %}
@@ -1126,6 +1164,25 @@ userBase = (function()
         currentDestinationApproachSpeed = destinationVector:dot(worldVelocity)
       end
 
+      -- Warp information when leaving a planet, not necessary for space
+      local warpInfo = nil
+      if links.warpdrive and links.warpdrive.getDestination() and links.warpdrive.getDestination() ~= 0 and currentCelestialBody then
+        -- Calculate closest warp point
+        local minWarpDistance = 2 * currentCelestialBody.radius
+        local celestialBodyPosition = vec3(currentCelestialBody.center)
+        local celestialBodyOffset = currentPosition - celestialBodyPosition
+
+        -- This is only really necessary if we're closer than the warp point, otherwise we don't need to render it on-screen
+        if celestialBodyOffset:len() < minWarpDistance then
+          local closestWarpPoint = celestialBodyPosition + celestialBodyOffset:normalize() * minWarpDistance
+
+          warpInfo = {
+            destination = links.warpdrive.getDestinationName(),
+            closestPoint = closestWarpPoint,
+          }
+        end
+      end
+
       -- Lite HUD
       local extraHudInfo = nil
       if enableLiteHud and not showHud then
@@ -1195,6 +1252,7 @@ userBase = (function()
         currentMotion = currentMotion,
         currentSpeed = worldVelocity:len(),
         currentSpeedVertical = -worldVertical:dot(worldVelocity),
+        warp = warpInfo,
 
         -- Routing utilities
         currentCelestialBody = currentCelestialBodyInfo,
@@ -1213,9 +1271,21 @@ userBase = (function()
           if 'table' == type(value) then
             if 'function' == type(value.exit) and 'function' == type(value.setTimer) then
               unit = value
-            end
+
+              -- Detects all linked elements
+              for key, value in pairs(unit) do
+                if 'table' == type(value) and 'function' == type(value.getElementClass) then
+                  links[key] = value
+
+                  -- Detects Core Unit
             if 'function' == type(value.getElementIdList) then
               core = value
+                  end
+                end
+              end
+
+              -- Stops processing
+              break
             end
           end
         end
