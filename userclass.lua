@@ -853,14 +853,14 @@ userBase = (function()
 
       --- Renders a horizontal progress bar
       UI.ProgressHorizontal = SmartTemplate([[
-        <div style="width: {{ width or 2 }}em; height: {{ height or 1 }}em; border: 0.0625em solid {{ stroke or GetHudColor() }};">
+        <div class="wlhud-ui-progress-bar" style="width: {{ width or 2 }}em; height: {{ height or 1 }}em; border: 0.0625em solid {{ stroke or GetHudColor() }};">
           <div style="width: {{ 100 * Clamp(0, progress or 0, 1) }}%; height: 100%; background: {{ color or GetHudColor() }};"></div>
         </div>
       ]], renderGlobals)
 
       --- Renders a horizontal progress bar
       UI.ProgressVertical = SmartTemplate([[
-        <div style="position: relative; width: {{ width or 1 }}em; height: {{ height or 2 }}em; border: 0.0625em solid {{ stroke or GetHudColor() }};">
+        <div class="wlhud-ui-progress-bar" style="position: relative; width: {{ width or 1 }}em; height: {{ height or 2 }}em; border: 0.0625em solid {{ stroke or GetHudColor() }};">
           <div style="position: absolute; bottom: 0px; left: 0px; width: 100%; height: {{ 100 * Clamp(0, progress or 0, 1) }}%; background: {{ color or GetHudColor() }};"></div>
         </div>
       ]], renderGlobals)
@@ -916,6 +916,11 @@ userBase = (function()
         <style>
         .wlhud-main {
           font-size: {{ HudScale }}em;
+        }
+        
+        .wlhud-ui-progress-bar {
+          background: {{ Colors.ShadowLight }};
+          box-shadow: 0px 0px 0.125em {{ Colors.Shadow }}, 0px 0px 0.250em #000;
         }
 
         .wlhud-fps {
@@ -997,9 +1002,6 @@ userBase = (function()
         }
         .wlhud-fuel-type-tanks > div {
           margin: 0px 0.1em;
-
-          background: {{ Colors.ShadowLight }};
-          box-shadow: 0px 0px 0.125em {{ Colors.Shadow }}, 0px 0px 0.250em #000;
         }
         .wlhud-fuel-type + .wlhud-fuel-type { margin-top: 1em; }
         </style>
