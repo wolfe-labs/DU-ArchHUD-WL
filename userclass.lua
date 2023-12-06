@@ -17,6 +17,9 @@ local hudScale = 1.6
 --- Enables FPS counter
 local showFramesPerSecond = true
 
+--- Enables engine warm-up bar and thrust
+local showEngineStats = true
+
 userBase = (function()
   --[[
     Embed our libraries for template rendering
@@ -523,23 +526,38 @@ userBase = (function()
       return table.concat(result, ':')
     end
 
-    --- Converts a m/s value into a string (optionally converts to km/h too)
-    ---@param value number
-    ---@param convertToKmph boolean
-    ---@return string
-    local function getMetersPerSecondAsString(value, convertToKmph)
-      if convertToKmph then
-        return ('%.1f km/h'):format(value * 3.6)
-      end
-      return ('%.1f m/s'):format(value)
-    end
-
     --- Rounds a value to desired precision
     ---@param value number
     ---@param precision number
     ---@return string
     local function getRoundedValue(value, precision)
       return ('%.' .. (precision or 0) .. 'f'):format(value)
+    end
+
+    --- Converts a m/s value into a string (optionally converts to km/h too)
+    ---@param value number
+    ---@param convertToKmph boolean
+    ---@param decimals number
+    ---@return string
+    local function getMetersPerSecondAsString(value, convertToKmph, decimals)
+      if convertToKmph then
+        return ('%s km/h'):format(getRoundedValue(value * 3.6, decimals or 1))
+      end
+      return ('%s m/s'):format(getRoundedValue(value, decimals or 1))
+    end
+
+    local function getNewtonsAsString(value, decimals)
+      local suffix = 'N'
+
+      if value > 1000000 then
+        value = value / 1000000
+        suffix = 'MN'
+      elseif value > 1000 then
+        value = value / 1000
+        suffix = 'kN'
+      end
+
+      return ('%s %s'):format(getRoundedValue(value, decimals or 1), suffix)
     end
     
     --- Gets closest celestial body to world position (in m/s²)
@@ -646,6 +664,14 @@ userBase = (function()
       return (celestialBody.radius + flyingAltitude) * c
     end
 
+    --- Clamps a value to a certain range
+    ---@param min number
+    ---@param value number
+    ---@param max number
+    local function getClampedValue(min, value, max)
+      return math.min(math.max(min, value), max)
+    end
+
     --[[
       AR Helpers
     ]]
@@ -675,10 +701,12 @@ userBase = (function()
         WorldCoordinate = getARPointFromCoordinate,
         Time = getTimeAsString,
         Round = getRoundedValue,
+        Clamp = getClampedValue,
         Exists = function(value) return 'nil' ~= type(value) end,
         Percentage = function(value, precision) return getRoundedValue(100 * value, precision) .. '%' end,
         Metric = getDistanceAsString,
         MetersPerSecond = getMetersPerSecondAsString,
+        Newtons = getNewtonsAsString,
         KilometersPerHour = function(value) return ('%.0f km/h'):format(value) end,
         TimeToDistance = function(distance, speed) return ((speed > 0) and getTimeAsString(distance / speed, true)) or nil end,
         DistanceTo = getDistanceToPoint,
@@ -825,15 +853,15 @@ userBase = (function()
 
       --- Renders a horizontal progress bar
       UI.ProgressHorizontal = SmartTemplate([[
-        <div style="width: {{ width or 2 }}em; height: {{ height or 1 }}em; border: 0.1em solid {{ stroke or GetHudColor() }};">
-          <div style="width: {{ 100 * (progress or 0) }}%; height: 100%; background: {{ color or GetHudColor() }};"></div>
+        <div style="width: {{ width or 2 }}em; height: {{ height or 1 }}em; border: 0.0625em solid {{ stroke or GetHudColor() }};">
+          <div style="width: {{ 100 * Clamp(0, progress or 0, 1) }}%; height: 100%; background: {{ color or GetHudColor() }};"></div>
         </div>
       ]], renderGlobals)
 
       --- Renders a horizontal progress bar
       UI.ProgressVertical = SmartTemplate([[
-        <div style="position: relative; width: {{ width or 1 }}em; height: {{ height or 2 }}em; border: 0.1em solid {{ stroke or GetHudColor() }};">
-          <div style="position: absolute; bottom: 0px; left: 0px; width: 100%; height: {{ 100 * (progress or 0) }}%; background: {{ color or GetHudColor() }};"></div>
+        <div style="position: relative; width: {{ width or 1 }}em; height: {{ height or 2 }}em; border: 0.0625em solid {{ stroke or GetHudColor() }};">
+          <div style="position: absolute; bottom: 0px; left: 0px; width: 100%; height: {{ 100 * Clamp(0, progress or 0, 1) }}%; background: {{ color or GetHudColor() }};"></div>
         </div>
       ]], renderGlobals)
 
@@ -984,13 +1012,18 @@ userBase = (function()
         {% end %}
 
           <div class="wlhud-info-speed">
-            {{ Label({ text = MetersPerSecond(currentSpeed, true), size = 2 }) }}
+            {{ Label({ text = MetersPerSecond(currentSpeed, true, 0), size = 2 }) }}
           {% if info.isThrottleMode then %}
             {{ Label({ text = 'THROTTLE: ' .. Percentage(info.throttleValue), weight = 'bold' }) }}
           {% elseif info.isCruiseMode then %}
             {{ Label({ text = 'CRUISE: ' .. KilometersPerHour(info.throttleValue), weight = 'bold' }) }}
           {% end %}
-            {{ Label({ text = 'ACCEL: ' .. Round(info.accelerationInGs, 1) .. 'g' .. ' — ' .. Round(info.accelerationInMs2, 1) .. 'm/s²', weight = 'bold' }) }}
+          {% if Exists(info.currentOutputPercentage) then %}
+            <br />
+            {{ Label({ text = 'ENGINE POWER:', size = 0.75, weight = 'bold' }) }}
+            {{ UI.ProgressHorizontal({ height = 0.3, width = 8, progress = info.currentOutputPercentage }) }}
+            {{ Label({ text = Round(info.forwardThrustInGs, 2) .. 'g' .. ' — ' .. Newtons(info.forwardThrust, 1), size = 0.75 }) }}
+          {% end %}
           </div>
 
         {% if currentCelestialBody then %}
@@ -1111,6 +1144,8 @@ userBase = (function()
       local worldVertical = vec3(core.getWorldVertical())
       local worldVelocity = vec3(construct.getWorldVelocity())
       local worldAcceleration = vec3(construct.getWorldAcceleration())
+      local forwardForceInNewtons = vec3(unit.getEngineThrust('longitudinal thrust')):len()
+      local forwardForceInMs2 = forwardForceInNewtons / construct.getMass()
       local atmoDensity = unit.getAtmosphereDensity()
 
       -- This is our current celestial body and coordinates
@@ -1190,6 +1225,18 @@ userBase = (function()
         local space, burnTimeSpace = getFuelLevels('space')
         local rocket, burnTimeRocket = getFuelLevels('rocket')
 
+        -- Calculates engine output
+        local currentOutputPercentage = nil
+        if showEngineStats then
+          local atmosphereDensityTransition = math.max(0, math.min(0.10, atmoDensity) / 0.10)
+          local forwardMaxKinematics = construct.getMaxThrustAlongAxis('longitudinal thrust', construct.getOrientationForward())
+          local forwardMaxForceInNewtons = atmoDensity * forwardMaxKinematics[1] + (1 - atmosphereDensityTransition) * forwardMaxKinematics[3]
+
+          -- Calculates the final engine output percentage
+          -- The * 1.01 here accounts for a rounding error that would prevent the bar to fill 100%, it's only visual
+          currentOutputPercentage = getClampedValue(0, (forwardForceInNewtons / forwardMaxForceInNewtons) * 1.01, 1)
+        end
+
         local function getMinAndMaxFromMultipleSources(...)
           local sources = {...}
           local min, max = nil, nil
@@ -1232,8 +1279,9 @@ userBase = (function()
           isThrottleMode = unit.getControlMode() == 0,
           isCruiseMode = unit.getControlMode() == 1,
           acceleration = worldAcceleration:len(),
-          accelerationInGs = worldAcceleration:len() / core.getGravityIntensity(),
-          accelerationInMs2 = worldAcceleration:len(),
+          forwardThrust = forwardForceInNewtons,
+          forwardThrustInGs = forwardForceInMs2 / referenceGravity1g,
+          currentOutputPercentage = currentOutputPercentage,
           burnTimes = burnTimes,
           fuel = {
             { tanks = atmo, burnTimes = burnTimeAtmo, label = 'Atmo' },
